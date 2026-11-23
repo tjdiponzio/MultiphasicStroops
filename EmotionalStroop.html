@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Drug Stroop Research Tool</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Prevent mobile double-tap zoom, pull-to-refresh, and selection delays */
+        html, body {
+            background-color: #000000;
+            color: #ffffff;
+            margin: 0;
+            padding: 0;
+            height: 100dvh;
+            width: 100%;
+            overflow-x: hidden;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* Safe area support for modern notched smartphones */
+        .safe-area-container {
+            padding-top: max(1rem, env(safe-area-inset-top));
+            padding-bottom: max(1rem, env(safe-area-inset-bottom));
+            padding-left: max(1rem, env(safe-area-inset-left));
+            padding-right: max(1rem, env(safe-area-inset-right));
+        }
+
+        /* Responsive Touch Response Buttons */
+        .touch-btn {
+            touch-action: manipulation;
+            transition: transform 0.06s ease, filter 0.06s ease;
+        }
+        .touch-btn:active {
+            transform: scale(0.95);
+            filter: brightness(0.85);
+        }
+
+        /* Custom subtle scrollbar for results/references on smaller screens */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0a0a0a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #333333;
+            border-radius: 9999px;
+        }
+    </style>
+</head>
+<body class="bg-black text-white font-sans antialiased flex flex-col min-h-[100dvh]">
+
+    <!-- Main App Shell -->
+    <main id="app" class="flex-1 flex flex-col w-full max-w-4xl mx-auto safe-area-container">
+        <!-- Views are dynamically injected here -->
+    </main>
+
+    <!-- Custom Non-Blocking Toast / Alert Banner -->
+    <div id="toast-banner" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 hidden max-w-md w-[90%] bg-amber-950/95 border border-amber-500 text-amber-100 px-4 py-3 rounded-xl shadow-2xl text-sm font-medium text-center backdrop-blur-md transition-opacity duration-200">
+    </div>
+
+    <script>
+        /**
+         * DRUG STROOP RESEARCH TOOL
+         * Mobile-first touch-screen adaptation of the Tkinter Stroop Research Tool.
+         * Includes Congruent baseline, Incongruent condition, and Drug-specific word pools.
+         */
+
+        // --- CONFIGURATION ---
+        const CONDITIONS_POOLS = {
+            "Congruent": [],   // Dynamically uses matching color word
+            "Incongruent": [], // Dynamically uses non-matching color word
+            "Fear": ["SCARED", "TERROR", "PANIC", "FEAR"],
+            "Happy": ["SMILE", "JOY", "HAPPY", "HORRAY"],
+            "Sad": ["FROWN", "SAD", "GLOOMY", "MISERY"],
+            "Angry": ["MAD", "RAGE", "ANGER", "FURY"],
+        };
+
+        const TRIALS_PER_COND = 12;
+        const TIME_LIMIT_MS = 1500;
+        const FIXATION_MS = 600;
+        const FEEDBACK_MS = 500;
+
+        // Color definitions matching original hex codes and keyboard shortcuts
+        const COLORS = [
+            { id: 'r', name: 'RED',    hex: '#ff0000', textClass: 'text-black', keys: ['r', '6'] },
+            { id: 'b', name: 'BLUE',   hex: '#21cbff', textClass: 'text-black', keys: ['b', '2'] },
+            { id: 'g', name: 'GREEN',  hex: '#44ff00', textClass: 'text-black', keys: ['g', '4'] },
+            { id: 'y', name: 'YELLOW', hex: '#fffb00', textClass: 'text-black', keys: ['y', '8'] }
+        ];
+
+        // Academic References (Exact citations provided)
+        const REFERENCES_HTML = `
+            <section class="mt-6 pt-5 border-t border-zinc-800/90 text-left">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-3">References</h3>
+                <ol class="list-decimal list-outside ml-4 space-y-2.5 text-xs text-zinc-400 leading-relaxed">
+                    <li>
+                        Carpenter, K. M., Schreiber, E., Church, S., &amp; McDowell, D. (2006). Drug Stroop performance: relationships with primary substance of use and treatment outcome in a drug-dependent outpatient sample. <em>Addictive behaviors</em>, 31(1), 174–181. 
+                        <a href="https://doi.org/10.1016/j.addbeh.2005.04.012" target="_blank" rel="noopener noreferrer" class="text-sky-400 hover:underline break-all">https://doi.org/10.1016/j.addbeh.2005.04.012</a>
+                    </li>
+                    <li>
+                        Ceceli, A. O., Huang, Y., Gaudreault, P. O., McClain, N. E., King, S. G., Kronberg, G., Brackett, A., Hoberman, G. N., Gray, J. H., Garland, E. L., Alia-Klein, N., &amp; Goldstein, R. Z. (2023). Recovery of inhibitory control prefrontal cortex function in inpatients with heroin use disorder: a 15-week longitudinal fMRI study. <em>medRxiv: the preprint server for health sciences</em>, 2023.03.28.23287864. 
+                        <a href="https://doi.org/10.1101/2023.03.28.23287864" target="_blank" rel="noopener noreferrer" class="text-sky-400 hover:underline break-all">https://doi.org/10.1101/2023.03.28.23287864</a>
+                    </li>
+                    <li>
+                        DeVito, E. E., Kiluk, B. D., Nich, C., Mouratidis, M., &amp; Carroll, K. M. (2018). Drug Stroop: Mechanisms of response to computerized cognitive behavioral therapy for cocaine dependence in a randomized clinical trial. <em>Drug and alcohol dependence</em>, 183, 162–168. 
+                        <a href="https://doi.org/10.1016/j.drugalcdep.2017.10.022" target="_blank" rel="noopener noreferrer" class="text-sky-400 hover:underline break-all">https://doi.org/10.1016/j.drugalcdep.2017.10.022</a>
+                    </li>
+                </ol>
+            </section>
+        `;
+
+        // --- APPLICATION STATE ---
+        const state = {
+            view: 'config', // 'config' | 'instructions' | 'task' | 'results'
+            selectedConditions: {
+                "Congruent": true,
+                "Incongruent": true,
+                "Happy": true,
+                "Sad": true,
+                "Angry": true,
+                "Fear": true
+            },
+            activeList: [],
+            trialSequence: [],
+            trialIndex: 0,
+            running: false,
+            waitingForInput: false,
+            currentCond: '',
+            currentWord: '',
+            targetColor: null,
+            startTime: 0,
+            results: [],
+            stepTimerId: null,
+            timeoutTimerId: null,
+            toastTimerId: null
+        };
+
+        const appEl = document.getElementById('app');
+        const toastEl = document.getElementById('toast-banner');
+
+        // --- UTILITIES ---
+        function showToast(message) {
+            toastEl.textContent = message;
+            toastEl.classList.remove('hidden');
+            if (state.toastTimerId) clearTimeout(state.toastTimerId);
+            state.toastTimerId = setTimeout(() => {
+                toastEl.classList.add('hidden');
+            }, 3200);
+        }
+
+        function clearTimers() {
+            if (state.stepTimerId) {
+                clearTimeout(state.stepTimerId);
+                state.stepTimerId = null;
+            }
+            if (state.timeoutTimerId) {
+                clearTimeout(state.timeoutTimerId);
+                state.timeoutTimerId = null;
+            }
+        }
+
+        function shuffleArray(arr) {
+            const copy = [...arr];
+            for (let i = copy.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [copy[i], copy[j]] = [copy[j], copy[i]];
+            }
+            return copy;
+        }
+
+        // --- VIEW 1: CONFIGURATION SCREEN ---
+        function renderConfigScreen() {
+            state.view = 'config';
+            state.running = false;
+            clearTimers();
+
+            const conditionsHtml = Object.keys(CONDITIONS_POOLS).map(cond => {
+                const isCongruent = cond === 'Congruent';
+                const checked = isCongruent ? true : !!state.selectedConditions[cond];
+                const poolPreview = cond === 'Congruent'
+                    ? 'Matching color words'
+                    : cond === 'Incongruent'
+                        ? 'Mismatched color words'
+                        : CONDITIONS_POOLS[cond].join(', ');
+
+                return `
+                    <label class="flex items-start gap-3.5 p-3.5 rounded-2xl border transition-all ${
+                        isCongruent
+                            ? 'bg-zinc-900/60 border-zinc-700 opacity-85 cursor-not-allowed'
+                            : checked
+                                ? 'bg-zinc-900 border-sky-500/80 cursor-pointer shadow-sm'
+                                : 'bg-zinc-950 border-zinc-800 hover:border-zinc-700 cursor-pointer'
+                    }">
+                        <input
+                            type="checkbox"
+                            data-cond="${cond}"
+                            ${checked ? 'checked' : ''}
+                            ${isCongruent ? 'disabled' : ''}
+                            class="mt-1 h-5 w-5 rounded border-zinc-600 bg-zinc-800 text-sky-500 focus:ring-sky-500 accent-sky-500"
+                        />
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="font-bold text-base text-white">${cond}</span>
+                                ${isCongruent ? '<span class="text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-300">Required</span>' : ''}
+                            </div>
+                            <p class="text-xs text-zinc-400 mt-1 truncate">${poolPreview}</p>
+                        </div>
+                    </label>
+                `;
+            }).join('');
+
+            appEl.innerHTML = `
+                <div class="flex-1 flex flex-col justify-between py-2 sm:py-6">
+                    <div>
+                        <header class="text-center mb-6">
+                            <span class="inline-block text-[11px] font-mono uppercase tracking-widest text-sky-400 bg-sky-950/50 border border-sky-800/60 px-3 py-1 rounded-full mb-2">
+                                Cognitive Assessment Task
+                            </span>
+                            <h1 class="text-2xl sm:text-4xl font-extrabold tracking-tight text-white">
+                                SELECT CONDITIONS
+                            </h1>
+                            <p class="text-xs sm:text-sm text-zinc-400 mt-1.5">
+                                Choose at least one condition in addition to Congruent (${TRIALS_PER_COND} trials each).
+                            </p>
+                        </header>
+
+                        <div id="conditions-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl mx-auto">
+                            ${conditionsHtml}
+                        </div>
+
+                        <div class="mt-6 flex justify-center">
+                            <button id="confirm-btn" class="touch-btn w-full sm:w-auto px-8 py-4 rounded-2xl bg-[#0072B2] hover:bg-[#0082cc] text-white font-bold text-base tracking-wide shadow-lg shadow-sky-950/40">
+                                CONFIRM &amp; CONTINUE
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="max-w-2xl mx-auto w-full">
+                        ${REFERENCES_HTML}
+                    </div>
+                </div>
+            `;
+
+            // Bind checkbox changes
+            appEl.querySelectorAll('input[type="checkbox"][data-cond]').forEach(cb => {
+                cb.addEventListener('change', (e) => {
+                    const cond = e.target.getAttribute('data-cond');
+                    if (cond !== 'Congruent') {
+                        state.selectedConditions[cond] = e.target.checked;
+                        renderConfigScreen();
+                    }
+                });
+            });
+
+            document.getElementById('confirm-btn').addEventListener('click', validateAndStart);
+        }
+
+        function validateAndStart() {
+            state.selectedConditions["Congruent"] = true;
+            state.activeList = Object.keys(CONDITIONS_POOLS).filter(c => state.selectedConditions[c]);
+
+            if (state.activeList.length < 2) {
+                showToast("Selection Required: Please select at least one condition in addition to Congruent.");
+                return;
+            }
+
+            let rawSequence = [];
+            state.activeList.forEach(cond => {
+                for (let i = 0; i < TRIALS_PER_COND; i++) {
+                    rawSequence.push(cond);
+                }
+            });
+
+            state.trialSequence = shuffleArray(rawSequence);
+            renderStartScreen();
+        }
+
+        // --- VIEW 2: INSTRUCTIONS / START SCREEN ---
+        function renderStartScreen() {
+            state.view = 'instructions';
+
+            const colorBadges = COLORS.map(c => `
+                <div class="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-zinc-900 border border-zinc-800">
+                    <span class="font-extrabold text-sm" style="color: ${c.hex};">${c.name}</span>
+                    <span class="font-mono text-xs text-zinc-400">[${c.name[0]} / ${c.keys[1]}]</span>
+                </div>
+            `).join('');
+
+            appEl.innerHTML = `
+                <div class="flex-1 flex flex-col justify-center items-center text-center max-w-xl mx-auto w-full py-4">
+                    <div class="w-full bg-zinc-950 border border-zinc-800 rounded-3xl p-6 sm:p-8 shadow-2xl">
+                        <div class="flex justify-center gap-3 mb-5 text-xs font-mono text-zinc-300">
+                            <span class="px-3 py-1 rounded-full bg-zinc-900 border border-zinc-800">
+                                Conditions: <strong class="text-white">${state.activeList.length}</strong>
+                            </span>
+                            <span class="px-3 py-1 rounded-full bg-zinc-900 border border-zinc-800">
+                                Total Trials: <strong class="text-white">${state.trialSequence.length}</strong>
+                            </span>
+                        </div>
+
+                        <h2 class="text-xl sm:text-2xl font-extrabold text-white mb-2">
+                            Identify the <span class="underline decoration-sky-400 underline-offset-4">INK COLOR</span> of the word
+                        </h2>
+                        <p class="text-sm text-zinc-400 mb-6">
+                            Ignore the meaning of the word and tap the matching color pad (or press its key) as fast and accurately as possible.
+                        </p>
+
+                        <div class="grid grid-cols-2 gap-2.5 mb-6 text-left">
+                            ${colorBadges}
+                        </div>
+
+                        <div class="flex flex-col sm:flex-row gap-3">
+                            <button id="back-config-btn" class="touch-btn px-5 py-3.5 rounded-2xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 font-semibold text-sm">
+                                ← Back
+                            </button>
+                            <button id="begin-task-btn" class="touch-btn flex-1 px-6 py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-base tracking-wide shadow-lg shadow-emerald-950/40">
+                                TAP TO BEGIN (OR SPACE)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('back-config-btn').addEventListener('click', renderConfigScreen);
+            document.getElementById('begin-task-btn').addEventListener('click', startTask);
+        }
+
+        // --- VIEW 3: ACTIVE STROOP TASK ---
+        function startTask() {
+            state.view = 'task';
+            state.running = true;
+            state.waitingForInput = false;
+            state.trialIndex = 0;
+            state.results = [];
+            clearTimers();
+
+            const touchPadsHtml = COLORS.map(c => `
+                <button
+                    type="button"
+                    data-color-id="${c.id}"
+                    style="background-color: ${c.hex};"
+                    class="touch-btn color-pad rounded-2xl h-20 sm:h-24 flex flex-col items-center justify-center shadow-lg border-2 border-black/20 focus:outline-none"
+                >
+                    <span class="font-extrabold text-lg sm:text-xl tracking-wider text-black drop-shadow-sm">${c.name}</span>
+                    <span class="font-mono text-[11px] font-bold text-black/75 mt-0.5">[${c.name[0]} / ${c.keys[1]}]</span>
+                </button>
+            `).join('');
+
+            appEl.innerHTML = `
+                <div class="flex-1 flex flex-col justify-between h-full w-full select-none">
+                    <!-- Top Bar: Progress & Quit -->
+                    <div class="flex items-center justify-between gap-4 pt-1">
+                        <div class="text-xs font-mono text-zinc-400">
+                            Trial <span id="trial-counter" class="text-white font-bold">1</span> / ${state.trialSequence.length}
+                        </div>
+                        <button id="quit-task-btn" type="button" class="touch-btn px-3.5 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 font-mono text-xs font-semibold">
+                            END [Q / 0]
+                        </button>
+                    </div>
+
+                    <!-- Center Stimulus Stage -->
+                    <div class="flex-1 flex items-center justify-center px-2 my-4">
+                        <div
+                            id="stimulus-display"
+                            class="font-extrabold tracking-tight text-center leading-none break-words max-w-full"
+                            style="font-size: clamp(3.25rem, 13vw, 6.5rem);"
+                        >+</div>
+                    </div>
+
+                    <!-- Bottom Touch Response Grid -->
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pb-2">
+                        ${touchPadsHtml}
+                    </div>
+                </div>
+            `;
+
+            // Zero-latency pointerdown events for touch screens & mouse clicks
+            appEl.querySelectorAll('.color-pad').forEach(btn => {
+                btn.addEventListener('pointerdown', (e) => {
+                    e.preventDefault();
+                    const colorId = btn.getAttribute('data-color-id');
+                    handleResponse(colorId);
+                });
+            });
+
+            document.getElementById('quit-task-btn').addEventListener('click', endTask);
+
+            prepareNextTrial();
+        }
+
+        function prepareNextTrial() {
+            if (!state.running) return;
+            if (state.trialIndex >= state.trialSequence.length) {
+                endTask();
+                return;
+            }
+
+            state.waitingForInput = false;
+            const counterEl = document.getElementById('trial-counter');
+            if (counterEl) counterEl.textContent = String(state.trialIndex + 1);
+
+            const stimulusEl = document.getElementById('stimulus-display');
+            if (stimulusEl) {
+                stimulusEl.textContent = '+';
+                stimulusEl.style.color = '#ffffff';
+            }
+
+            state.stepTimerId = setTimeout(nextTrial, FIXATION_MS);
+        }
+
+        function nextTrial() {
+            if (!state.running) return;
+
+            state.currentCond = state.trialSequence[state.trialIndex];
+            state.targetColor = COLORS[Math.floor(Math.random() * COLORS.length)];
+
+            let word = '';
+            if (state.currentCond === 'Congruent') {
+                word = state.targetColor.name;
+            } else if (state.currentCond === 'Incongruent') {
+                const otherColors = COLORS.filter(c => c.id !== state.targetColor.id);
+                word = otherColors[Math.floor(Math.random() * otherColors.length)].name;
+            } else {
+                const pool = CONDITIONS_POOLS[state.currentCond];
+                word = pool[Math.floor(Math.random() * pool.length)];
+            }
+
+            state.currentWord = word;
+
+            const stimulusEl = document.getElementById('stimulus-display');
+            if (stimulusEl) {
+                stimulusEl.textContent = word;
+                stimulusEl.style.color = state.targetColor.hex;
+            }
+
+            state.waitingForInput = true;
+            state.startTime = performance.now();
+
+            if (state.timeoutTimerId) clearTimeout(state.timeoutTimerId);
+            state.timeoutTimerId = setTimeout(handleTimeout, TIME_LIMIT_MS);
+        }
+
+        function handleResponse(colorId) {
+            if (!state.running || !state.waitingForInput) return;
+
+            if (state.timeoutTimerId) {
+                clearTimeout(state.timeoutTimerId);
+                state.timeoutTimerId = null;
+            }
+
+            state.waitingForInput = false;
+            const rtSeconds = (performance.now() - state.startTime) / 1000.0;
+            const isCorrect = (colorId === state.targetColor.id);
+
+            recordAndFeedback(isCorrect, rtSeconds, false, colorId);
+        }
+
+        function handleTimeout() {
+            if (!state.running || !state.waitingForInput) return;
+            state.timeoutTimerId = null;
+            state.waitingForInput = false;
+            recordAndFeedback(false, TIME_LIMIT_MS / 1000.0, true, 'TIMEOUT');
+        }
+
+        function recordAndFeedback(isCorrect, rt, timedOut, responseId) {
+            state.results.push({
+                trial: state.trialIndex + 1,
+                condition: state.currentCond,
+                word: state.currentWord,
+                targetColor: state.targetColor.name,
+                response: responseId.toUpperCase(),
+                correct: isCorrect,
+                timedOut: timedOut,
+                rt: rt
+            });
+
+            state.trialIndex += 1;
+
+            const stimulusEl = document.getElementById('stimulus-display');
+            if (stimulusEl) {
+                if (timedOut) {
+                    stimulusEl.textContent = 'TOO SLOW';
+                    stimulusEl.style.color = '#7f8c8d';
+                } else if (isCorrect) {
+                    stimulusEl.textContent = 'CORRECT';
+                    stimulusEl.style.color = '#00ffb9';
+                } else {
+                    stimulusEl.textContent = 'INCORRECT';
+                    stimulusEl.style.color = '#ff8200';
+                }
+            }
+
+            state.stepTimerId = setTimeout(prepareNextTrial, FEEDBACK_MS);
+        }
+
+        function endTask() {
+            state.running = false;
+            state.waitingForInput = false;
+            clearTimers();
+            renderResultsScreen();
+        }
+
+        // --- VIEW 4: RESULTS SUMMARY & EXPORT ---
+        function renderResultsScreen() {
+            state.view = 'results';
+
+            // Overall Stats (Correct trials only)
+            const allCorrectRts = state.results.filter(r => r.correct).map(r => r.rt);
+            const nCorrect = allCorrectRts.length;
+            const overallMean = nCorrect > 0
+                ? allCorrectRts.reduce((acc, v) => acc + v, 0) / nCorrect
+                : null;
+
+            let overallSd = null;
+            if (nCorrect > 1) {
+                const variance = allCorrectRts.reduce((acc, x) => acc + Math.pow(x - overallMean, 2), 0) / (nCorrect - 1);
+                overallSd = Math.sqrt(variance);
+            }
+
+            const meanStr = overallMean !== null ? `${overallMean.toFixed(3)}s` : 'N/A';
+            const sdStr = overallSd !== null ? `${overallSd.toFixed(3)}s` : 'N/A';
+
+            // Congruent Baseline Average RT
+            const congruentRts = state.results
+                .filter(r => r.condition === 'Congruent' && r.correct)
+                .map(r => r.rt);
+            const congruentAvg = congruentRts.length > 0
+                ? congruentRts.reduce((acc, v) => acc + v, 0) / congruentRts.length
+                : null;
+
+            // Condition Ordering: Congruent first, Incongruent second (if tested), then drug conditions alphabetically
+            const presentConds = new Set(state.results.map(r => r.condition));
+            const orderedConds = [];
+            if (presentConds.has('Congruent')) orderedConds.push('Congruent');
+            if (presentConds.has('Incongruent')) orderedConds.push('Incongruent');
+            const otherDrugConds = Array.from(presentConds)
+                .filter(c => c !== 'Congruent' && c !== 'Incongruent')
+                .sort();
+            orderedConds.push(...otherDrugConds);
+
+            const summaryRowsData = orderedConds.map(cond => {
+                const condTrials = state.results.filter(r => r.condition === cond);
+                const correctTrials = condTrials.filter(r => r.correct);
+                const acc = condTrials.length > 0 ? (correctTrials.length / condTrials.length) * 100 : 0;
+
+                let avgRt = null;
+                let diff = null;
+                let zScore = null;
+
+                if (correctTrials.length > 0) {
+                    avgRt = correctTrials.reduce((acc, r) => acc + r.rt, 0) / correctTrials.length;
+
+                    // Congruent - Condition (Cong - X)
+                    if (congruentAvg !== null) {
+                        diff = congruentAvg - avgRt;
+                    }
+
+                    // Z-Score against overall correct RT distribution
+                    if (overallSd !== null && overallSd > 0) {
+                        zScore = (avgRt - overallMean) / overallSd;
+                    }
+                }
+
+                return {
+                    condition: cond,
+                    trials: condTrials.length,
+                    correctCount: correctTrials.length,
+                    acc,
+                    avgRt,
+                    diff,
+                    zScore
+                };
+            });
+
+            const tableRowsHtml = summaryRowsData.map(row => {
+                const avgRtStr = row.avgRt !== null ? `${row.avgRt.toFixed(3)}s` : 'N/A';
+                const diffStr = row.diff !== null
+                    ? `${row.diff >= 0 ? '+' : ''}${row.diff.toFixed(3)}s`
+                    : 'N/A';
+                const zStr = row.zScore !== null
+                    ? `${row.zScore >= 0 ? '+' : ''}${row.zScore.toFixed(2)}`
+                    : 'N/A';
+
+                const diffColor = row.diff === null
+                    ? 'text-zinc-400'
+                    : row.diff < 0
+                        ? 'text-amber-400'
+                        : 'text-emerald-400';
+
+                return `
+                    <tr class="border-b border-zinc-800/80 hover:bg-zinc-900/50 transition-colors">
+                        <td class="py-3 px-3 font-semibold text-white whitespace-nowrap">${row.condition}</td>
+                        <td class="py-3 px-3 font-mono text-right text-zinc-200 whitespace-nowrap">${row.acc.toFixed(1)}%</td>
+                        <td class="py-3 px-3 font-mono text-right text-zinc-200 whitespace-nowrap">${avgRtStr}</td>
+                        <td class="py-3 px-3 font-mono text-right font-semibold ${diffColor} whitespace-nowrap">${diffStr}</td>
+                        <td class="py-3 px-3 font-mono text-right text-zinc-300 whitespace-nowrap">${zStr}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            appEl.innerHTML = `
+                <div class="flex-1 flex flex-col justify-between py-2 sm:py-6 max-w-3xl mx-auto w-full">
+                    <div>
+                        <header class="text-center mb-5">
+                            <h1 class="text-2xl sm:text-3xl font-extrabold text-white">Results Summary</h1>
+                            <div class="mt-3 inline-flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 px-4 py-2.5 rounded-2xl bg-zinc-950 border border-emerald-500/40 font-mono text-xs sm:text-sm text-[#00ffb9]">
+                                <span>Mean: <strong>${meanStr}</strong></span>
+                                <span class="text-zinc-600">|</span>
+                                <span>SD: <strong>${sdStr}</strong></span>
+                                <span class="text-zinc-600">|</span>
+                                <span>N: <strong>${nCorrect}/${state.results.length}</strong></span>
+                            </div>
+                        </header>
+
+                        <!-- Responsive Table Container -->
+                        <div class="bg-[#141414] border border-zinc-800 rounded-2xl overflow-hidden shadow-xl">
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-left border-collapse text-xs sm:text-sm">
+                                    <thead>
+                                        <tr class="bg-zinc-900/90 border-b border-zinc-800 text-sky-400 font-mono text-xs uppercase">
+                                            <th class="py-3 px-3">Condition</th>
+                                            <th class="py-3 px-3 text-right">Acc %</th>
+                                            <th class="py-3 px-3 text-right">Avg RT (s)</th>
+                                            <th class="py-3 px-3 text-right">Cong - X (s)</th>
+                                            <th class="py-3 px-3 text-right">Z-Score</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${tableRowsHtml || `<tr><td colspan="5" class="py-6 text-center text-zinc-500">No trials recorded.</td></tr>`}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
+                            <button id="export-csv-btn" class="touch-btn w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg">
+                                DOWNLOAD CSV DATA
+                            </button>
+                            <button id="new-config-btn" class="touch-btn w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-[#34495e] hover:bg-[#415b76] text-white font-bold text-sm shadow-lg">
+                                NEW CONFIG
+                            </button>
+                        </div>
+                    </div>
+
+                    ${REFERENCES_HTML}
+                </div>
+            `;
+
+            document.getElementById('new-config-btn').addEventListener('click', renderConfigScreen);
+            document.getElementById('export-csv-btn').addEventListener('click', () => exportCsv(summaryRowsData, overallMean, overallSd));
+        }
+
+        function exportCsv(summaryRowsData, overallMean, overallSd) {
+            if (!state.results.length) {
+                showToast("No trial data available to export.");
+                return;
+            }
+
+            const lines = [];
+            lines.push("=== SUMMARY STATISTICS ===");
+            lines.push("Condition,Trials,Correct,Accuracy_Pct,Avg_RT_Sec,Congruent_Minus_Cond_Sec,Z_Score");
+            summaryRowsData.forEach(r => {
+                lines.push([
+                    r.condition,
+                    r.trials,
+                    r.correctCount,
+                    r.acc.toFixed(2),
+                    r.avgRt !== null ? r.avgRt.toFixed(4) : "NA",
+                    r.diff !== null ? r.diff.toFixed(4) : "NA",
+                    r.zScore !== null ? r.zScore.toFixed(4) : "NA"
+                ].join(","));
+            });
+
+            lines.push("");
+            lines.push(`Overall_Correct_Mean_Sec,${overallMean !== null ? overallMean.toFixed(4) : "NA"}`);
+            lines.push(`Overall_Correct_SD_Sec,${overallSd !== null ? overallSd.toFixed(4) : "NA"}`);
+            lines.push("");
+            lines.push("=== TRIAL-BY-TRIAL DATA ===");
+            lines.push("Trial,Condition,Stimulus_Word,Target_Ink_Color,Response,Correct,Timed_Out,RT_Sec");
+            state.results.forEach(t => {
+                lines.push([
+                    t.trial,
+                    t.condition,
+                    t.word,
+                    t.targetColor,
+                    t.response,
+                    t.correct ? 1 : 0,
+                    t.timedOut ? 1 : 0,
+                    t.rt.toFixed(4)
+                ].join(","));
+            });
+
+            const csvBlob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+            const url = URL.createObjectURL(csvBlob);
+            const link = document.createElement("a");
+            const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+            link.href = url;
+            link.download = `drug_stroop_results_${timestamp}.csv`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            showToast("CSV results file downloaded.");
+        }
+
+        // --- GLOBAL KEYBOARD SUPPORT ---
+        window.addEventListener('keydown', (e) => {
+            const key = e.key.toLowerCase();
+
+            if (state.view === 'instructions') {
+                if (e.code === 'Space' || key === ' ') {
+                    e.preventDefault();
+                    startTask();
+                }
+                return;
+            }
+
+            if (state.view === 'task' && state.running) {
+                if (key === 'q' || key === '0') {
+                    e.preventDefault();
+                    endTask();
+                    return;
+                }
+
+                if (state.waitingForInput) {
+                    const matchedColor = COLORS.find(c => c.keys.includes(key));
+                    if (matchedColor) {
+                        e.preventDefault();
+                        handleResponse(matchedColor.id);
+                    }
+                }
+            }
+        });
+
+        // Initialize app on load
+        window.addEventListener('DOMContentLoaded', renderConfigScreen);
+    </script>
+</body>
+</html>
