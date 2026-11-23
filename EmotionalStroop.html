@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Drug Stroop Research Tool</title>
+    <title>Emotional Stroop Research Tool</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Google Fonts: Inter & JetBrains Mono -->
@@ -85,9 +85,9 @@
 
     <script>
         /**
-         * DRUG STROOP RESEARCH TOOL
-         * Mobile-first touch-screen adaptation of the Tkinter Stroop Research Tool.
-         * Includes Congruent baseline, Incongruent condition, and Drug-specific word pools.
+         * EMOTIONAL STROOP RESEARCH TOOL
+         * Mobile-first touch-screen adaptation of the Stroop Research Tool.
+         * Starts directly on instructions with all configured conditions active.
          */
 
         // --- CONFIGURATION ---
@@ -97,7 +97,7 @@
             "Fear": ["SCARED", "TERROR", "PANIC", "FEAR"],
             "Happy": ["SMILE", "JOY", "HAPPY", "HORRAY"],
             "Sad": ["FROWN", "SAD", "GLOOMY", "MISERY"],
-            "Angry": ["MAD", "RAGE", "ANGER", "FURY"],
+            "Angry": ["MAD", "RAGE", "ANGER", "FURY"]
         };
 
         const TRIALS_PER_COND = 12;
@@ -113,19 +113,12 @@
             { id: 'y', name: 'YELLOW', hex: '#fffb00', textClass: 'text-black', keys: ['y', '8'] }
         ];
 
-        // Academic References (Exact citations provided)
+        const REFERENCES_HTML = '';
+
         // --- APPLICATION STATE ---
         const state = {
-            view: 'config', // 'config' | 'instructions' | 'task' | 'results'
-            selectedConditions: {
-                "Congruent": true,
-                "Incongruent": true,
-                "Happy": true,
-                "Sad": true,
-                "Angry": true,
-                "Fear": true
-            },
-            activeList: [],
+            view: 'instructions', // 'instructions' | 'task' | 'results'
+            activeList: Object.keys(CONDITIONS_POOLS),
             trialSequence: [],
             trialIndex: 0,
             running: false,
@@ -173,116 +166,24 @@
             return copy;
         }
 
-        // --- VIEW 1: CONFIGURATION SCREEN ---
-        function renderConfigScreen() {
-            state.view = 'config';
-            state.running = false;
-            clearTimers();
-
-            const conditionsHtml = Object.keys(CONDITIONS_POOLS).map(cond => {
-                const isCongruent = cond === 'Congruent';
-                const checked = isCongruent ? true : !!state.selectedConditions[cond];
-                const poolPreview = cond === 'Congruent'
-                    ? 'Matching color words'
-                    : cond === 'Incongruent'
-                        ? 'Mismatched color words'
-                        : CONDITIONS_POOLS[cond].join(', ');
-
-                return `
-                    <label class="flex items-start gap-3.5 p-3.5 rounded-2xl border transition-all ${
-                        isCongruent
-                            ? 'bg-zinc-900/60 border-zinc-700 opacity-85 cursor-not-allowed'
-                            : checked
-                                ? 'bg-zinc-900 border-sky-500/80 cursor-pointer shadow-sm'
-                                : 'bg-zinc-950 border-zinc-800 hover:border-zinc-700 cursor-pointer'
-                    }">
-                        <input
-                            type="checkbox"
-                            data-cond="${cond}"
-                            ${checked ? 'checked' : ''}
-                            ${isCongruent ? 'disabled' : ''}
-                            class="mt-1 h-5 w-5 rounded border-zinc-600 bg-zinc-800 text-sky-500 focus:ring-sky-500 accent-sky-500"
-                        />
-                        <div class="flex-1 min-w-0">
-                            <div class="flex items-center justify-between gap-2">
-                                <span class="font-bold text-base text-white">${cond}</span>
-                                ${isCongruent ? '<span class="text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-300">Required</span>' : ''}
-                            </div>
-                            <p class="text-xs text-zinc-400 mt-1 truncate">${poolPreview}</p>
-                        </div>
-                    </label>
-                `;
-            }).join('');
-
-            appEl.innerHTML = `
-                <div class="flex-1 flex flex-col justify-between py-2 sm:py-6">
-                    <div>
-                        <header class="text-center mb-6">
-                            <span class="inline-block text-[11px] font-mono uppercase tracking-widest text-sky-400 bg-sky-950/50 border border-sky-800/60 px-3 py-1 rounded-full mb-2">
-                                Cognitive Assessment Task
-                            </span>
-                            <h1 class="text-2xl sm:text-4xl font-extrabold tracking-tight text-white">
-                                SELECT CONDITIONS
-                            </h1>
-                            <p class="text-xs sm:text-sm text-zinc-400 mt-1.5">
-                                Choose at least one condition in addition to Congruent (${TRIALS_PER_COND} trials each).
-                            </p>
-                        </header>
-
-                        <div id="conditions-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl mx-auto">
-                            ${conditionsHtml}
-                        </div>
-
-                        <div class="mt-6 flex justify-center">
-                            <button id="confirm-btn" class="touch-btn w-full sm:w-auto px-8 py-4 rounded-2xl bg-[#0072B2] hover:bg-[#0082cc] text-white font-bold text-base tracking-wide shadow-lg shadow-sky-950/40">
-                                CONFIRM &amp; CONTINUE
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="max-w-2xl mx-auto w-full">
-                        ${REFERENCES_HTML}
-                    </div>
-                </div>
-            `;
-
-            // Bind checkbox changes
-            appEl.querySelectorAll('input[type="checkbox"][data-cond]').forEach(cb => {
-                cb.addEventListener('change', (e) => {
-                    const cond = e.target.getAttribute('data-cond');
-                    if (cond !== 'Congruent') {
-                        state.selectedConditions[cond] = e.target.checked;
-                        renderConfigScreen();
-                    }
-                });
-            });
-
-            document.getElementById('confirm-btn').addEventListener('click', validateAndStart);
-        }
-
-        function validateAndStart() {
-            state.selectedConditions["Congruent"] = true;
-            state.activeList = Object.keys(CONDITIONS_POOLS).filter(c => state.selectedConditions[c]);
-
-            if (state.activeList.length < 2) {
-                showToast("Selection Required: Please select at least one condition in addition to Congruent.");
-                return;
-            }
-
-            let rawSequence = [];
+        function buildTrialSequence() {
+            state.activeList = Object.keys(CONDITIONS_POOLS);
+            const rawSequence = [];
             state.activeList.forEach(cond => {
                 for (let i = 0; i < TRIALS_PER_COND; i++) {
                     rawSequence.push(cond);
                 }
             });
-
             state.trialSequence = shuffleArray(rawSequence);
-            renderStartScreen();
         }
 
-        // --- VIEW 2: INSTRUCTIONS / START SCREEN ---
+        // --- VIEW 1: INSTRUCTIONS / START SCREEN ---
         function renderStartScreen() {
             state.view = 'instructions';
+            state.running = false;
+            state.waitingForInput = false;
+            clearTimers();
+            buildTrialSequence();
 
             const colorBadges = COLORS.map(c => `
                 <div class="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-zinc-900 border border-zinc-800">
@@ -303,9 +204,9 @@
                             </span>
                         </div>
 
-                        <h2 class="text-xl sm:text-2xl font-extrabold text-white mb-2">
+                        <h1 class="text-xl sm:text-2xl font-extrabold text-white mb-2">
                             Identify the <span class="underline decoration-sky-400 underline-offset-4">INK COLOR</span> of the word
-                        </h2>
+                        </h1>
                         <p class="text-sm text-zinc-400 mb-6">
                             Ignore the meaning of the word and tap the matching color pad (or press its key) as fast and accurately as possible.
                         </p>
@@ -314,23 +215,19 @@
                             ${colorBadges}
                         </div>
 
-                        <div class="flex flex-col sm:flex-row gap-3">
-                            <button id="back-config-btn" class="touch-btn px-5 py-3.5 rounded-2xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 font-semibold text-sm">
-                                ← Back
-                            </button>
-                            <button id="begin-task-btn" class="touch-btn flex-1 px-6 py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-base tracking-wide shadow-lg shadow-emerald-950/40">
-                                TAP TO BEGIN (OR SPACE)
-                            </button>
-                        </div>
+                        <button id="begin-task-btn" class="touch-btn w-full px-6 py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-base tracking-wide shadow-lg shadow-emerald-950/40">
+                            TAP TO BEGIN (OR SPACE)
+                        </button>
                     </div>
+
+                    ${REFERENCES_HTML}
                 </div>
             `;
 
-            document.getElementById('back-config-btn').addEventListener('click', renderConfigScreen);
             document.getElementById('begin-task-btn').addEventListener('click', startTask);
         }
 
-        // --- VIEW 3: ACTIVE STROOP TASK ---
+        // --- VIEW 2: ACTIVE STROOP TASK ---
         function startTask() {
             state.view = 'task';
             state.running = true;
@@ -505,7 +402,7 @@
             renderResultsScreen();
         }
 
-        // --- VIEW 4: RESULTS SUMMARY & EXPORT ---
+        // --- VIEW 3: RESULTS SUMMARY & EXPORT ---
         function renderResultsScreen() {
             state.view = 'results';
 
@@ -533,15 +430,15 @@
                 ? congruentRts.reduce((acc, v) => acc + v, 0) / congruentRts.length
                 : null;
 
-            // Condition Ordering: Congruent first, Incongruent second (if tested), then drug conditions alphabetically
+            // Condition Ordering: Congruent first, Incongruent second (if tested), then emotion conditions alphabetically
             const presentConds = new Set(state.results.map(r => r.condition));
             const orderedConds = [];
             if (presentConds.has('Congruent')) orderedConds.push('Congruent');
             if (presentConds.has('Incongruent')) orderedConds.push('Incongruent');
-            const otherDrugConds = Array.from(presentConds)
+            const otherConds = Array.from(presentConds)
                 .filter(c => c !== 'Congruent' && c !== 'Incongruent')
                 .sort();
-            orderedConds.push(...otherDrugConds);
+            orderedConds.push(...otherConds);
 
             const summaryRowsData = orderedConds.map(cond => {
                 const condTrials = state.results.filter(r => r.condition === cond);
@@ -642,8 +539,8 @@
                             <button id="export-csv-btn" class="touch-btn w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg">
                                 DOWNLOAD CSV DATA
                             </button>
-                            <button id="new-config-btn" class="touch-btn w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-[#34495e] hover:bg-[#415b76] text-white font-bold text-sm shadow-lg">
-                                NEW CONFIG
+                            <button id="restart-btn" class="touch-btn w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-[#34495e] hover:bg-[#415b76] text-white font-bold text-sm shadow-lg">
+                                RUN AGAIN
                             </button>
                         </div>
                     </div>
@@ -652,7 +549,7 @@
                 </div>
             `;
 
-            document.getElementById('new-config-btn').addEventListener('click', renderConfigScreen);
+            document.getElementById('restart-btn').addEventListener('click', renderStartScreen);
             document.getElementById('export-csv-btn').addEventListener('click', () => exportCsv(summaryRowsData, overallMean, overallSd));
         }
 
@@ -701,16 +598,16 @@
             const link = document.createElement("a");
             const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
             link.href = url;
-            link.download = `drug_stroop_results_${timestamp}.csv`;
+            link.setAttribute("download", `emotional_stroop_results_${timestamp}.csv`);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
             URL.revokeObjectURL(url);
-            showToast("CSV results file downloaded.");
         }
 
-        // --- GLOBAL KEYBOARD SUPPORT ---
-        window.addEventListener('keydown', (e) => {
+        // --- KEYBOARD CONTROLS ---
+        document.addEventListener('keydown', (e) => {
+            if (e.repeat) return;
             const key = e.key.toLowerCase();
 
             if (state.view === 'instructions') {
@@ -738,8 +635,8 @@
             }
         });
 
-        // Initialize app on load
-        window.addEventListener('DOMContentLoaded', renderConfigScreen);
+        // --- INITIALIZE ---
+        renderStartScreen();
     </script>
 </body>
 </html>
