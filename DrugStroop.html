@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Drug Stroop Research Tool</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Prevent mobile double-tap zoom, pull-to-refresh, and selection delays */
+        html, body {
+            background-color: #000000;
+            color: #ffffff;
+            margin: 0;
+            padding: 0;
+            height: 100dvh;
+            width: 100%;
+            overflow-x: hidden;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* Safe area support for modern notched smartphones */
+        .safe-area-container {
+            padding-top: max(1rem, env(safe-area-inset-top));
+            padding-bottom: max(1rem, env(safe-area-inset-bottom));
+            padding-left: max(1rem, env(safe-area-inset-left));
+            padding-right: max(1rem, env(safe-area-inset-right));
+        }
+
+        /* Responsive Touch Response Buttons */
+        .touch-btn {
+            touch-action: manipulation;
+            transition: transform 0.06s ease, filter 0.06s ease;
+        }
+        .touch-btn:active {
+            transform: scale(0.95);
+            filter: brightness(0.85);
+        }
+
+        /* Custom subtle scrollbar for results/references on smaller screens */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0a0a0a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #333333;
+            border-radius: 9999px;
+        }
+    </style>
+</head>
+<body class="bg-black text-white font-sans antialiased flex flex-col min-h-[100dvh]">
+
+    <!-- Main App Shell -->
+    <main id="app" class="flex-1 flex flex-col w-full max-w-4xl mx-auto safe-area-container">
+        <!-- Views are dynamically injected here -->
+    </main>
+
+    <!-- Custom Non-Blocking Toast / Alert Banner -->
+    <div id="toast-banner" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 hidden max-w-md w-[90%] bg-amber-950/95 border border-amber-500 text-amber-100 px-4 py-3 rounded-xl shadow-2xl text-sm font-medium text-center backdrop-blur-md transition-opacity duration-200">
+    </div>
+
+    <script>
+        /**
+         * DRUG STROOP RESEARCH TOOL
+         * Mobile-first touch-screen adaptation of the Tkinter Stroop Research Tool.
+         * Retains Congruent baseline and Drug-specific word pools (Alcohol, Cannabis, Opioids, Amphetamines).
+         */
+
+        // --- CONFIGURATION ---
+        const CONDITIONS_POOLS = {
+            "Congruent": [], // Dynamically uses matching color word
+            "Alcohol": ["BEER", "BOOZE", "DRINK", "LIQUOR"],
+            "Cannabis": ["WEED", "KUSH", "MARYJANE", "POT"],
+            "Opioids": ["FENT", "HEROIN", "PILLS", "SMACK"],
+            "Amphetamines": ["METH", "CRACK", "COKE", "SNOW"]
+        };
+
+        const TRIALS_PER_COND = 12;
+        const TIME_LIMIT_MS = 1500;
+        const FIXATION_MS = 600;
+        const FEEDBACK_MS = 500;
+
+        // Color definitions matching original hex codes and keyboard shortcuts
+        const COLORS = [
+            { id: 'r', name: 'RED',    hex: '#ff0000', textClass: 'text-black', keys: ['r', '6'] },
+            { id: 'b', name: 'BLUE',   hex: '#21cbff', textClass: 'text-black', keys: ['b', '2'] },
+            { id: 'g', name: 'GREEN',  hex: '#44ff00', textClass: 'text-black', keys: ['g', '4'] },
+            { id: 'y', name: 'YELLOW', hex: '#fffb00', textClass: 'text-black', keys: ['y', '8'] }
+        ];
+
+        // Academic References (Exact citations provided)
+        const REFERENCES_HTML = `
+            <section class="mt-6 pt-5 border-t border-zinc-800/90 text-left">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-3">References</h3>
+                <ol class="list-decimal list-outside ml-4 space-y-2.5 text-xs text-zinc-400 leading-relaxed">
+                    <li>
+                        Carpenter, K.
